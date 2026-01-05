@@ -69,8 +69,12 @@ export default function App() {
   
   // Load Plant Definitions
   useEffect(() => {
-    fetch('/plants.json') // This will now work correctly with the vite.config.js fix
-      .then(res => res.json())
+    // FIX: Removed the leading slash so it fetches relative to the repo path
+    fetch('plants.json') 
+      .then(res => {
+        if (!res.ok) throw new Error("Failed to load plants");
+        return res.json();
+      })
       .then(data => setPlants(data))
       .catch(err => console.error("Could not load plants", err));
   }, []);
@@ -94,7 +98,6 @@ export default function App() {
     const plant = active.data.current.plant;
     
     // Calculate Drop Position (Relative to Bed)
-    // In a real app, use ref measurements. Here we simulate for prototype simplicity:
     // We assume the bed is 800px wide (80 inches).
     const dropX = active.rect.current.translated.left - over.rect.left;
     const pxPerInch = 10; // Scale factor
@@ -160,7 +163,6 @@ export default function App() {
       return;
     }
     
-    // Simple prompt for prototype (replace with Modal in production)
     const name = prompt("Plant Name:");
     if (!name) return;
     const spacing = Number(prompt("Spacing (inches):", "12"));
@@ -175,7 +177,7 @@ export default function App() {
       icon: "🌱"
     };
 
-    // User/Repo updated to your specific details:
+    // Note: We are using your actual user details here
     const success = await savePlantToGithub(newPlant, 'samwise41', 'Garden', token);
     if (success) {
       setPlants([...plants, newPlant]); // Optimistic update
