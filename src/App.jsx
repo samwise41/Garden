@@ -69,7 +69,7 @@ export default function App() {
   
   // Load Plant Definitions
   useEffect(() => {
-    // FIX: Removed the leading slash so it fetches relative to the repo path
+    // FIX APPLIED: Removed the leading slash '/' so it looks in the current folder
     fetch('plants.json') 
       .then(res => {
         if (!res.ok) throw new Error("Failed to load plants");
@@ -163,6 +163,7 @@ export default function App() {
       return;
     }
     
+    // Simple prompt for prototype (replace with Modal in production)
     const name = prompt("Plant Name:");
     if (!name) return;
     const spacing = Number(prompt("Spacing (inches):", "12"));
@@ -177,7 +178,7 @@ export default function App() {
       icon: "🌱"
     };
 
-    // Note: We are using your actual user details here
+    // User/Repo settings
     const success = await savePlantToGithub(newPlant, 'samwise41', 'Garden', token);
     if (success) {
       setPlants([...plants, newPlant]); // Optimistic update
