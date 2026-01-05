@@ -5,5 +5,5 @@ import react from '@vitejs/plugin-react'
 export default defineConfig({
   plugins: [react()],
   // CHANGE THIS LINE BELOW:
-  base: '/YOUR_REPO_NAME/', 
+  base: 'https://github.com/samwise41/Garden', 
 })
