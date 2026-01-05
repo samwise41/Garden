@@ -176,7 +176,8 @@ export default function App() {
     };
 
     // User/Repo needed (hardcode here or add to settings)
-    const success = await savePlantToGithub(newPlant, 'YOUR_GITHUB_USER', 'YOUR_REPO_NAME', token);
+    // Update these to match your actual GitHub info:
+    const success = await savePlantToGithub(newPlant, 'samwise41', 'Garden', token);
     if (success) {
       setPlants([...plants, newPlant]); // Optimistic update
       alert("Plant added! GitHub pages will update in ~1 min.");
