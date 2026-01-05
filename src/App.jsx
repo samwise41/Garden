@@ -69,7 +69,7 @@ export default function App() {
   
   // Load Plant Definitions
   useEffect(() => {
-    fetch('/plants.json')
+    fetch('/plants.json') // This will now work correctly with the vite.config.js fix
       .then(res => res.json())
       .then(data => setPlants(data))
       .catch(err => console.error("Could not load plants", err));
@@ -175,8 +175,7 @@ export default function App() {
       icon: "🌱"
     };
 
-    // User/Repo needed (hardcode here or add to settings)
-    // Update these to match your actual GitHub info:
+    // User/Repo updated to your specific details:
     const success = await savePlantToGithub(newPlant, 'samwise41', 'Garden', token);
     if (success) {
       setPlants([...plants, newPlant]); // Optimistic update
