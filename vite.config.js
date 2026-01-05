@@ -7,3 +7,4 @@ export default defineConfig({
   // This must match your repository name with slashes
   base: '/Garden/', 
 })
+
