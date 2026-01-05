@@ -1,0 +1,29 @@
+[
+  {
+    "id": "pepper",
+    "name": "Bell Pepper",
+    "spacing": 12,
+    "rows": 2,
+    "stagger": true,
+    "color": "bg-green-500",
+    "icon": "🫑"
+  },
+  {
+    "id": "tomato",
+    "name": "Tomato",
+    "spacing": 24,
+    "rows": 1,
+    "stagger": false,
+    "color": "bg-red-500",
+    "icon": "🍅"
+  },
+  {
+    "id": "carrot",
+    "name": "Carrot",
+    "spacing": 3,
+    "rows": 2,
+    "stagger": false,
+    "color": "bg-orange-400",
+    "icon": "🥕"
+  }
+]
