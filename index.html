@@ -3,12 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Solitaire</title>
+    <title>Solitaire Pro</title>
     <style>
         :root {
-            --card-width: 90px;
-            --card-height: 126px;
-            --card-gap: 12px; /* Slightly tighter gap for better fit */
+            --card-width: 12.5vw; /* Responsive width */
+            --card-height: 17.5vw;
+            --card-gap: 1.5vw;
             --bg-color: #2e7d32;
             --card-back: repeating-linear-gradient(
                 45deg,
@@ -17,6 +17,14 @@
                 #465298 10px,
                 #465298 20px
             );
+        }
+
+        @media (min-width: 600px) {
+            :root {
+                --card-width: 80px;
+                --card-height: 112px;
+                --card-gap: 15px;
+            }
         }
 
         body {
@@ -36,21 +44,22 @@
         header {
             width: 100%;
             padding: 10px 15px;
-            background: rgba(0,0,0,0.2);
+            background: rgba(0,0,0,0.25);
             display: flex;
             justify-content: space-between;
             align-items: center;
             box-sizing: border-box;
             position: sticky;
             top: 0;
-            z-index: 100;
+            z-index: 200;
             backdrop-filter: blur(5px);
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
         }
 
         .header-left { display: flex; align-items: center; gap: 15px; }
         .header-right { display: flex; align-items: center; gap: 8px; }
 
-        h1 { margin: 0; font-size: 1.1rem; }
+        h1 { margin: 0; font-size: 1.1rem; display: block; }
         #score { font-weight: bold; font-family: monospace; font-size: 1.1rem; }
         
         button {
@@ -63,46 +72,51 @@
             color: var(--bg-color);
             font-size: 0.85rem;
             box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+            transition: transform 0.1s, opacity 0.2s;
         }
         
+        button:active { transform: translateY(1px); }
         button:disabled { opacity: 0.5; cursor: not-allowed; }
 
         /* Silver Solve Button */
         button.solve-btn {
-            background: linear-gradient(to bottom, #f0f0f0, #d0d0d0);
+            background: linear-gradient(to bottom, #ffffff, #e0e0e0);
             color: #333;
             border: 1px solid #999;
         }
 
         #game-board {
-            margin-top: 15px;
+            margin-top: 20px;
             display: grid;
             grid-template-columns: repeat(7, var(--card-width));
             gap: var(--card-gap);
             padding: 10px;
-            padding-bottom: 80px; /* Space for scrolling */
-            justify-content: center; /* Center the board */
+            padding-bottom: 80px;
+            justify-content: center;
         }
 
+        /* --- LAYOUT FIX: Enforce Top Row Height & Spacing --- */
         .top-row {
             grid-column: 1 / -1;
             display: grid;
             grid-template-columns: repeat(7, var(--card-width));
             gap: var(--card-gap);
-            margin-bottom: 10px;
+            /* Vital: Add bottom margin to separate from Tableau */
+            margin-bottom: 30px; 
+            height: var(--card-height);
         }
 
         .stock-pile, .discard-pile, .foundation {
             width: var(--card-width);
             height: var(--card-height);
-            border: 2px solid rgba(255,255,255,0.3);
-            border-radius: 8px;
+            border: 2px solid rgba(255,255,255,0.25);
+            border-radius: 6px;
             position: relative;
             box-sizing: border-box;
         }
 
         .foundation { 
-            background: rgba(0,0,0,0.1); 
+            background: rgba(0,0,0,0.15); 
             text-align: center;
             line-height: var(--card-height);
             font-size: 2.5rem; 
@@ -114,8 +128,8 @@
             width: var(--card-width);
             height: var(--card-height);
             background: white;
-            border-radius: 8px;
-            box-shadow: 2px 2px 5px rgba(0,0,0,0.3);
+            border-radius: 6px;
+            box-shadow: 1px 1px 4px rgba(0,0,0,0.3);
             position: absolute;
             display: flex;
             justify-content: center;
@@ -125,7 +139,7 @@
             transition: top 0.1s;
             box-sizing: border-box;
             touch-action: none;
-            overflow: hidden; /* Fixes any content spilling out */
+            overflow: hidden;
         }
 
         .card.red { color: #d32f2f; }
@@ -138,12 +152,12 @@
             pointer-events: none;
         }
 
-        /* --- UPDATED CARD TEXT STYLES --- */
+        /* Clean Card Face */
         .card-corner {
             position: absolute;
             top: 4px;
             left: 4px;
-            font-size: 1.3rem; /* Reduced from 1.6rem to fit better */
+            font-size: 1.2rem;
             display: flex;
             flex-direction: column;
             align-items: center;
@@ -151,19 +165,14 @@
             font-weight: 800;
         }
         
-        .card-corner span { display: block; }
-        
-        /* Removed bottom corner style completely */
-
         .card-center { 
             position: absolute;
-            top: 50%;
+            top: 55%; /* Slight push down to center better */
             left: 50%;
             transform: translate(-50%, -50%);
-            font-size: 3.5rem; 
+            font-size: 3rem; 
             line-height: 1;
         }
-        /* ------------------------------- */
 
         .card.back {
             background: var(--card-back);
@@ -175,31 +184,26 @@
             position: relative;
             width: var(--card-width);
             min-height: var(--card-height);
+            /* Hit area for dropping */
             padding-bottom: 50px; 
         }
 
-        @media (max-width: 700px) {
-            :root {
-                --card-width: 12.5vw;
-                --card-height: 17.5vw;
-                --card-gap: 1.5vw;
-            }
-            #game-board, .top-row { gap: 1.5vw; padding: 5px; }
-            .card-center { font-size: 2.5rem; } 
-            .card-corner { font-size: 1rem; top: 2px; left: 2px; } /* Smaller font on mobile */
-            .foundation { font-size: 2rem; line-height: 17.5vw; }
-            h1 { display: none; } /* Hide title on small screens to save space */
+        @media (max-width: 600px) {
+            h1 { display: none; } 
             header { padding: 8px; }
             .header-left { gap: 8px; }
-            button { padding: 6px 10px; font-size: 0.8rem; }
+            .header-right { gap: 4px; }
+            button { padding: 6px 8px; font-size: 0.8rem; }
+            .card-center { font-size: 2.2rem; } 
+            .card-corner { font-size: 0.9rem; top: 2px; left: 2px; }
         }
         
         .card.dragging {
             z-index: 9999 !important;
-            opacity: 0.9;
+            opacity: 0.95;
             pointer-events: none;
-            box-shadow: 5px 5px 15px rgba(0,0,0,0.5);
-            transform: scale(1.05); /* Slight pop when dragging */
+            box-shadow: 5px 10px 20px rgba(0,0,0,0.5);
+            transform: scale(1.05); 
         }
         .placeholder { opacity: 0.3; }
 
@@ -255,7 +259,7 @@
 
 <div id="win-message">
     <h2>You Win!</h2>
-    <p>Great job!</p>
+    <p>All cards collected!</p>
     <br>
     <button onclick="newGame()">Play Again</button>
 </div>
@@ -267,23 +271,20 @@
     const values = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'];
     
     let deck = [], stock = [], discard = [], tableau = [], foundations = [];
-    let initialDeckState = []; // Stores the shuffled deck for "Restart"
+    let initialDeckState = [];
     let score = 0;
     let historyStack = [];
     let isSolving = false; 
 
-    // --- Safety Feature: Warn on Exit ---
+    // Safety: Prevent accidental navigation
     window.addEventListener('beforeunload', function (e) {
-        // Cancel the event
         e.preventDefault(); 
-        // Chrome requires returnValue to be set
         e.returnValue = '';
     });
 
-    // Handle "Back" button safety
     history.pushState(null, document.title, location.href);
     window.addEventListener('popstate', function (event) {
-        if (confirm("Are you sure you want to go back? You will lose your current game.")) {
+        if (confirm("Go back? You will lose this game state.")) {
             history.back();
         } else {
             history.pushState(null, document.title, location.href);
@@ -312,18 +313,15 @@
     }
 
     function newGame() {
-        if(score > 0 && !confirm("Start a brand new game? Current progress will be lost.")) return;
-        
+        if(score > 0 && !confirm("Start a brand new game?")) return;
         let d = createDeck();
         shuffle(d);
-        // Deep copy for restart capability
         initialDeckState = JSON.parse(JSON.stringify(d));
         startGame(d);
     }
 
     function restartLevel() {
-        if(!confirm("Restart this level from the beginning?")) return;
-        // Restore from the initial shuffled state
+        if(!confirm("Restart this exact deal?")) return;
         let d = JSON.parse(JSON.stringify(initialDeckState));
         startGame(d);
     }
@@ -341,65 +339,83 @@
         discard = [];
         stock = [];
 
-        // Deal Cards
-        // Note: We pop from the end of the array to deal
         for (let i = 0; i < 7; i++) {
             for (let j = 0; j <= i; j++) {
                 let card = gameDeck.pop();
-                // Reset card state just in case
                 card.faceUp = (j === i); 
                 tableau[i].push(card);
             }
         }
-        stock = gameDeck; // Remainder goes to stock
+        stock = gameDeck; 
         render();
     }
 
-    // --- Smart Bot Logic ---
+    // --- SMART SOLVER LOGIC ---
     const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+    
+    // Track recent moves to prevent infinite loops (e.g. King left <-> King right)
+    let botMoveHistory = [];
 
     async function startSmartSolve() {
         if (isSolving) return;
-        if (!confirm("Let the computer finish the game for you?")) return;
+        if (!confirm("Let the bot take over?")) return;
         
         isSolving = true;
         enableControls(false);
         saveState(); 
+        botMoveHistory = []; // Reset loop detector
 
         let consecutiveNonMoves = 0;
-        while (isSolving && consecutiveNonMoves < 15) {
+        // Limit total moves to prevent infinite running
+        let maxMoves = 300; 
+
+        while (isSolving && consecutiveNonMoves < 12 && maxMoves > 0) {
             let moved = await performBestMove();
             if (moved) {
                 consecutiveNonMoves = 0;
                 render();
-                await sleep(100); 
+                await sleep(150); 
+                maxMoves--;
             } else {
                 consecutiveNonMoves++;
+                // If stuck, try drawing
                 drawCard(true); 
                 render();
-                await sleep(50);
+                await sleep(100);
             }
             if (foundations.every(f => f.length === 13)) {
                 checkWin();
                 break;
             }
         }
+        
         if (!foundations.every(f => f.length === 13)) {
              isSolving = false;
              enableControls(true);
-             alert("No more moves found.");
+             alert("Bot stuck. Try moving a card yourself!");
         }
     }
 
     async function performBestMove() {
+        // Priority 1: Move to Foundation (Always good)
         if (await tryMoveToFoundation()) return true;
-        if (await tryDigForFoundation()) return true;
-        if (await tryRevealFaceDown()) return true;
-        if (await tryMoveKingToEmpty()) return true;
+
+        // Priority 2: Uncover face-down cards (The goal of the game)
+        if (await tryTableauMove({ onlyIfReveals: true })) return true;
+
+        // Priority 3: Organize piles (Move visible stacks to valid spots to allow future moves)
+        if (await tryTableauMove({ onlyIfReveals: false })) return true;
+
+        // Priority 4: Bring card DOWN from Foundation (To unstick the game)
+        if (await tryFoundationToTableau()) return true;
+        
         return false;
     }
 
+    // --- MOVE LOGIC ---
+
     async function tryMoveToFoundation() {
+        // Check Tableau
         for (let i = 0; i < 7; i++) {
             if (tableau[i].length === 0) continue;
             let card = tableau[i][tableau[i].length - 1];
@@ -411,6 +427,7 @@
                 return true;
             }
         }
+        // Check Discard
         if (discard.length > 0) {
             let card = discard[discard.length - 1];
             let fIdx = suits.indexOf(card.suit);
@@ -423,77 +440,93 @@
         return false;
     }
 
-    async function tryDigForFoundation() {
-        for (let fIdx = 0; fIdx < 4; fIdx++) {
-            let neededRank = foundations[fIdx].length + 1;
-            let neededSuit = suits[fIdx];
-            if (neededRank > 13) continue;
+    async function tryTableauMove({ onlyIfReveals }) {
+        // Try moving any valid stack from col A to col B
+        for (let srcIdx = 0; srcIdx < 7; srcIdx++) {
+            let col = tableau[srcIdx];
+            if (col.length === 0) continue;
 
-            for (let tIdx = 0; tIdx < 7; tIdx++) {
-                let col = tableau[tIdx];
-                let cIdx = col.findIndex(c => c.suit === neededSuit && c.rank === neededRank && c.faceUp);
-                if (cIdx !== -1 && cIdx < col.length - 1) {
-                    let stackBase = col[cIdx + 1];
-                    let targetCol = findTableauTarget(stackBase);
-                    if (targetCol !== -1) {
-                        let movingStack = col.splice(cIdx + 1);
-                        tableau[targetCol].push(...movingStack);
-                        return true; 
-                    }
+            // Find valid substacks (face up cards)
+            let firstFaceUp = col.findIndex(c => c.faceUp);
+            if (firstFaceUp === -1) continue;
+
+            // Loop through all possible substacks in this column
+            for (let splitIdx = firstFaceUp; splitIdx < col.length; splitIdx++) {
+                let cardToMove = col[splitIdx];
+                let isBaseOfPile = (splitIdx === firstFaceUp);
+
+                // Optimization: Don't move a King from an empty spot to another empty spot
+                if (cardToMove.rank === 13 && firstFaceUp === 0 && splitIdx === 0) {
+                     // Moving a King that is already at the bottom of a pile
+                     // Only useful if we are moving it to a DIFFERENT empty column? No, that's useless loop.
+                     continue; 
                 }
-            }
-        }
-        return false;
-    }
 
-    async function tryRevealFaceDown() {
-        for (let i = 0; i < 7; i++) {
-            let col = tableau[i];
-            let firstFaceUpIdx = col.findIndex(c => c.faceUp);
-            if (firstFaceUpIdx > 0) {
-                let stackBase = col[firstFaceUpIdx];
-                let targetCol = findTableauTarget(stackBase);
-                if (targetCol !== -1) {
-                    let movingStack = col.splice(firstFaceUpIdx);
-                    tableau[targetCol].push(...movingStack);
-                    col[firstFaceUpIdx - 1].faceUp = true;
+                // If "onlyIfReveals" is true, we skip if this doesn't expose a face-down card
+                if (onlyIfReveals && firstFaceUp === 0) continue; 
+
+                // Find a target
+                let targetIdx = findTableauTarget(cardToMove, srcIdx);
+                if (targetIdx !== -1) {
+                    // Loop Prevention: Don't repeat recent moves
+                    let moveSig = `${srcIdx}-${splitIdx}-${targetIdx}`;
+                    if (botMoveHistory.includes(moveSig)) continue;
+
+                    // Execute
+                    let movingStack = col.splice(splitIdx);
+                    tableau[targetIdx].push(...movingStack);
+                    if (col.length > 0) col[col.length-1].faceUp = true;
+                    
+                    botMoveHistory.push(moveSig);
+                    if (botMoveHistory.length > 10) botMoveHistory.shift();
+
                     return true;
                 }
             }
         }
         return false;
     }
-    
-    async function tryMoveKingToEmpty() {
-        let emptyColIdx = tableau.findIndex(c => c.length === 0);
-        if (emptyColIdx === -1) return false;
 
-        for (let i = 0; i < 7; i++) {
-            if (i === emptyColIdx) continue;
-            let col = tableau[i];
-            if (col.length === 0) continue;
-            let bottomIdx = col.findIndex(c => c.faceUp);
-            if (bottomIdx === -1) continue;
-            let card = col[bottomIdx];
-            if (card.rank === 13 && bottomIdx > 0) {
-                 let movingStack = col.splice(bottomIdx);
-                 tableau[emptyColIdx].push(...movingStack);
-                 col[bottomIdx-1].faceUp = true;
-                 return true;
+    async function tryFoundationToTableau() {
+        // Try to pull a card BACK DOWN from foundation if it helps
+        for (let fIdx = 0; fIdx < 4; fIdx++) {
+            if (foundations[fIdx].length === 0) continue;
+            
+            let card = foundations[fIdx][foundations[fIdx].length - 1];
+            
+            // Can this card go onto any tableau column?
+            // Note: We can only put it on a valid parent
+            let targetIdx = findTableauTarget(card, -1); // -1 source means external
+            
+            if (targetIdx !== -1) {
+                // Heuristic: Only move down if it's "useful". 
+                // Simple check: Don't move down if it just goes to an empty column (wastes space usually).
+                // Move down if it goes onto a card.
+                if (tableau[targetIdx].length > 0) {
+                    foundations[fIdx].pop();
+                    tableau[targetIdx].push(card);
+                    updateScore(-10); // Penalty for taking back, but allowed
+                    return true;
+                }
             }
         }
         return false;
     }
 
-    function findTableauTarget(cardToPlace) {
+    function findTableauTarget(cardToPlace, ignoreColIdx) {
         for (let i = 0; i < 7; i++) {
+            if (i === ignoreColIdx) continue;
+            
             let col = tableau[i];
+            // Empty Column -> Accepts King
             if (col.length === 0) {
                 if (cardToPlace.rank === 13) return i;
             } else {
+                // Occupied -> Check Color/Rank
                 let topCard = col[col.length - 1];
                 let isRed = (cardToPlace.suit === 'h' || cardToPlace.suit === 'd');
                 let topIsRed = (topCard.suit === 'h' || topCard.suit === 'd');
+                
                 if (isRed !== topIsRed && topCard.rank === cardToPlace.rank + 1) {
                     return i;
                 }
@@ -502,7 +535,7 @@
         return -1;
     }
 
-    // --- Standard Interaction ---
+    // --- STANDARD RENDER ---
     function enableControls(enabled) {
         document.getElementById('undo-btn').disabled = !enabled;
         document.getElementById('solve-btn').disabled = !enabled;
@@ -565,7 +598,8 @@
             tableau[i].forEach((card, idx) => {
                 if (!card.faceUp && idx === tableau[i].length - 1) card.faceUp = true;
                 const el = createCardElement(card, 'tableau', i, idx);
-                el.style.top = `${idx * (window.innerWidth < 700 ? 25 : 30)}px`;
+                // Vertical cascade
+                el.style.top = `${idx * (window.innerWidth < 600 ? 25 : 30)}px`;
                 tEl.appendChild(el);
             });
         }
@@ -573,7 +607,6 @@
         if (!isSolving) checkWin();
     }
 
-    // UPDATED: No bottom corner logic here
     function createCardElement(card, source, colIdx, cardIdx) {
         const el = document.createElement('div');
         el.className = `card ${card.faceUp ? '' : 'back'} ${card.faceUp ? colors[card.suit] : ''}`;
@@ -744,7 +777,7 @@
     // Start
     let firstDeck = createDeck();
     shuffle(firstDeck);
-    initialDeckState = JSON.parse(JSON.stringify(firstDeck)); // Initial Save
+    initialDeckState = JSON.parse(JSON.stringify(firstDeck));
     startGame(firstDeck);
 </script>
 </body>
