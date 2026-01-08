@@ -3,11 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>GitHub Solitaire (Mobile Ready)</title>
+    <title>GitHub Solitaire (Big Cards)</title>
     <style>
         :root {
-            --card-width: 80px;
-            --card-height: 112px;
+            /* Desktop Default Sizes */
+            --card-width: 90px;
+            --card-height: 126px;
             --card-gap: 15px;
             --bg-color: #2e7d32;
             --card-back: repeating-linear-gradient(
@@ -29,8 +30,8 @@
             align-items: center;
             min-height: 100vh;
             user-select: none;
-            overflow-x: hidden; /* Prevent horizontal scroll */
-            touch-action: pan-y; /* Allow vertical scroll, handle horizontal in JS */
+            overflow-x: hidden;
+            touch-action: pan-y;
         }
 
         header {
@@ -90,7 +91,7 @@
             background: rgba(0,0,0,0.1); 
             text-align: center;
             line-height: var(--card-height);
-            font-size: 2rem;
+            font-size: 3rem; /* Bigger foundation placeholder symbols */
             color: rgba(255,255,255,0.2);
         }
 
@@ -107,9 +108,9 @@
             align-items: center;
             font-size: 1.5rem;
             cursor: grab;
-            transition: top 0.1s; /* Faster for mobile feel */
+            transition: top 0.1s;
             box-sizing: border-box;
-            touch-action: none; /* Critical for mobile drag */
+            touch-action: none;
         }
 
         .card.red { color: #d32f2f; }
@@ -121,20 +122,32 @@
             justify-content: space-between;
             width: 100%;
             height: 100%;
-            padding: 4px;
+            padding: 2px; /* Reduced padding to give text more room */
             box-sizing: border-box;
             pointer-events: none;
         }
 
+        /* --- BIGGER TEXT STYLES START HERE --- */
         .card-corner {
-            font-size: 1rem;
+            font-size: 1.6rem; /* Much bigger corner number */
             display: flex;
             flex-direction: column;
             align-items: center;
+            line-height: 0.9;
+            font-weight: bold;
+        }
+        
+        .card-corner span {
+            display: block;
+        }
+
+        .card-corner.bottom { transform: rotate(180deg); }
+        
+        .card-center { 
+            font-size: 3.5rem; /* Huge center symbol */
             line-height: 1;
         }
-        .card-corner.bottom { transform: rotate(180deg); }
-        .card-center { font-size: 2rem; }
+        /* --- BIGGER TEXT STYLES END HERE --- */
 
         .card.back {
             background: var(--card-back);
@@ -146,14 +159,13 @@
             position: relative;
             width: var(--card-width);
             min-height: var(--card-height);
-            /* Add a large hit area for dropping on empty cols */
             padding-bottom: 50px; 
         }
 
         /* Mobile Adjustments */
         @media (max-width: 600px) {
             :root {
-                --card-width: 13vw; /* Use Viewport Width units */
+                --card-width: 13vw;
                 --card-height: 18vw;
                 --card-gap: 1vw;
             }
@@ -161,23 +173,21 @@
                 gap: 1vw;
                 padding: 5px;
             }
-            .card-center { font-size: 1.2rem; }
-            .card-corner { font-size: 0.6rem; }
-            .foundation { font-size: 1.2rem; line-height: 18vw; }
+            
+            /* Mobile Specific Font Upscaling */
+            .card-center { font-size: 2.8rem; } /* Massive center suit for mobile */
+            .card-corner { font-size: 1.1rem; } /* Easy to read numbers */
+            .foundation { font-size: 2rem; line-height: 18vw; }
             h1 { font-size: 1rem; }
         }
         
-        /* Dragging Classes */
         .card.dragging {
             z-index: 9999 !important;
             opacity: 0.8;
-            pointer-events: none; /* Let touch pass through to detect drop target */
+            pointer-events: none;
         }
         
-        /* Visual Placeholder for drag source */
-        .placeholder {
-            opacity: 0.3;
-        }
+        .placeholder { opacity: 0.3; }
 
         #win-message {
             display: none;
@@ -237,8 +247,6 @@
     let deck = [], stock = [], discard = [], tableau = [], foundations = [];
     let score = 0;
 
-    // --- Core Game Logic ---
-
     function createDeck() {
         deck = [];
         for (let s of suits) {
@@ -282,11 +290,9 @@
     }
 
     function render() {
-        // Stock
         const stockEl = document.getElementById('stock');
         stockEl.innerHTML = stock.length > 0 ? '<div class="card back"></div>' : '<span style="font-size:20px; color:rgba(255,255,255,0.3)">↻</span>';
 
-        // Discard
         const discardEl = document.getElementById('discard');
         discardEl.innerHTML = '';
         if (discard.length > 0) {
@@ -296,7 +302,6 @@
             discardEl.appendChild(el);
         }
 
-        // Foundations
         for (let i = 0; i < 4; i++) {
             const fEl = document.getElementById(`foundation-${i}`);
             fEl.innerHTML = symbols[suits[i]];
@@ -307,20 +312,12 @@
             }
         }
 
-        // Tableau
         for (let i = 0; i < 7; i++) {
             const tEl = document.getElementById(`tableau-${i}`);
             tEl.innerHTML = '';
-            
-            // Render pile
             tableau[i].forEach((card, idx) => {
-                // Auto flip rule
-                if (!card.faceUp && idx === tableau[i].length - 1) {
-                    card.faceUp = true;
-                }
-                
+                if (!card.faceUp && idx === tableau[i].length - 1) card.faceUp = true;
                 const el = createCardElement(card, 'tableau', i, idx);
-                // Vertical spacing
                 el.style.top = `${idx * (window.innerWidth < 600 ? 25 : 30)}px`;
                 tEl.appendChild(el);
             });
@@ -331,8 +328,6 @@
     function createCardElement(card, source, colIdx, cardIdx) {
         const el = document.createElement('div');
         el.className = `card ${card.faceUp ? '' : 'back'} ${card.faceUp ? colors[card.suit] : ''}`;
-        
-        // Store data for logic
         el.dataset.rank = card.rank;
         el.dataset.suit = card.suit;
         el.dataset.source = source;
@@ -347,7 +342,6 @@
                     <div class="card-corner bottom"><span>${card.value}</span><span>${symbols[card.suit]}</span></div>
                 </div>
             `;
-            // Attach Touch/Mouse listeners
             attachDragListeners(el);
         }
         return el;
@@ -365,26 +359,18 @@
         render();
     }
 
-    // --- Touch & Drag System ---
-
-    let dragItem = null;
-    let dragClone = null; // Visual clone moving with finger
-    let startX, startY;
-    let initialLeft, initialTop;
+    let dragItem = null, dragClone = null, startX, startY;
 
     function attachDragListeners(el) {
-        // Touch events
         el.addEventListener('touchstart', handleTouchStart, {passive: false});
         el.addEventListener('touchmove', handleTouchMove, {passive: false});
         el.addEventListener('touchend', handleTouchEnd);
-        
-        // Mouse events (for desktop compatibility)
         el.addEventListener('mousedown', handleMouseDown);
     }
 
     function handleTouchStart(e) {
-        if(e.touches.length > 1) return; // Ignore multi-touch
-        e.preventDefault(); // Stop scrolling
+        if(e.touches.length > 1) return;
+        e.preventDefault();
         startDrag(e.target.closest('.card'), e.touches[0].clientX, e.touches[0].clientY);
     }
 
@@ -397,15 +383,11 @@
 
     function startDrag(cardEl, clientX, clientY) {
         if (!cardEl || cardEl.classList.contains('back')) return;
-
         dragItem = cardEl;
         startX = clientX;
         startY = clientY;
-
-        // Calculate card offset relative to viewport
         const rect = dragItem.getBoundingClientRect();
         
-        // Create a Clone for visual dragging
         dragClone = dragItem.cloneNode(true);
         dragClone.classList.add('dragging');
         dragClone.style.position = 'fixed';
@@ -414,22 +396,6 @@
         dragClone.style.width = rect.width + 'px';
         dragClone.style.height = rect.height + 'px';
         
-        // If moving a stack from tableau, clone the cards underneath too
-        const source = dragItem.dataset.source;
-        const colIdx = parseInt(dragItem.dataset.col);
-        const cardIdx = parseInt(dragItem.dataset.idx);
-
-        if (source === 'tableau') {
-            const stack = tableau[colIdx].slice(cardIdx + 1);
-            stack.forEach((c, i) => {
-                const subCard = dragClone.cloneNode(true);
-                // Just visual logic for stack not critical for minimal example,
-                // but nice to have. For simplicity, we just drag the leader card visually
-                // or we could append children.
-                // Keeping it simple: Drag leader card, visual stack implied.
-            });
-        }
-
         document.body.appendChild(dragClone);
         dragItem.classList.add('placeholder');
     }
@@ -448,14 +414,8 @@
     function moveDrag(clientX, clientY) {
         const dx = clientX - startX;
         const dy = clientY - startY;
-        
-        // We need original rect to add delta
-        // To simplify, just use current style + delta
-        // But better: update based on initial pos. 
-        // Quick hack: parse current left/top
         const currentLeft = parseFloat(dragClone.style.left);
         const currentTop = parseFloat(dragClone.style.top);
-        
         dragClone.style.transform = `translate(${dx}px, ${dy}px)`;
     }
 
@@ -475,26 +435,13 @@
     function endDrag(clientX, clientY) {
         dragClone.remove();
         dragItem.classList.remove('placeholder');
-        
-        // Hit Detection
-        // 1. Hide the dragged element momentarily so we can see what's under it
         dragItem.style.display = 'none'; 
         let elemBelow = document.elementFromPoint(clientX, clientY);
         dragItem.style.display = 'flex';
-
-        if (!elemBelow) {
-            dragItem = null; dragClone = null; return;
-        }
-
-        // Find closest valid drop target
+        if (!elemBelow) { dragItem = null; dragClone = null; return; }
         let dropTarget = elemBelow.closest('.card, .tableau-col, .foundation');
-        
-        if (dropTarget) {
-            processMove(dragItem, dropTarget);
-        }
-
-        dragItem = null;
-        dragClone = null;
+        if (dropTarget) processMove(dragItem, dropTarget);
+        dragItem = null; dragClone = null;
     }
 
     function processMove(cardEl, targetEl) {
@@ -502,65 +449,48 @@
         const sCol = parseInt(cardEl.dataset.col);
         const sIdx = parseInt(cardEl.dataset.idx);
 
-        // Identify Target
-        let tType, tCol, tCard;
-
+        let tType, tCol;
         if (targetEl.classList.contains('foundation')) {
             tType = 'foundation';
             tCol = parseInt(targetEl.dataset.index);
         } else if (targetEl.classList.contains('tableau-col')) {
             tType = 'tableau';
             tCol = parseInt(targetEl.dataset.index);
-            // Empty column drop
         } else if (targetEl.classList.contains('card')) {
-            // Drop on a card
             tType = targetEl.dataset.source;
             tCol = parseInt(targetEl.dataset.col);
         }
 
         if (!tType) return;
 
-        // Extract Data
         let movingCards = [];
         if (sSource === 'tableau') movingCards = tableau[sCol].slice(sIdx);
         else if (sSource === 'discard') movingCards = [discard[discard.length-1]];
         else if (sSource === 'foundation') movingCards = [foundations[sCol][foundations[sCol].length-1]];
 
         const bottomMoving = movingCards[0];
-
-        // Logic Check
         let allowed = false;
 
-        // 1. Target is Foundation
         if (tType === 'foundation') {
             if (movingCards.length === 1) {
                 const pile = foundations[tCol];
                 const topRank = pile.length;
-                if (bottomMoving.suit === suits[tCol] && bottomMoving.rank === topRank + 1) {
-                    allowed = true;
-                }
+                if (bottomMoving.suit === suits[tCol] && bottomMoving.rank === topRank + 1) allowed = true;
             }
         }
-        // 2. Target is Tableau
         else if (tType === 'tableau') {
             const destCol = tableau[tCol];
             const destCard = destCol.length > 0 ? destCol[destCol.length - 1] : null;
-
             if (!destCard) {
-                // Empty col requires King
                 if (bottomMoving.rank === 13) allowed = true;
             } else {
-                // Rank -1 and opposite color
                 const destColor = colors[destCard.suit];
                 const moveColor = colors[bottomMoving.suit];
-                if (destColor !== moveColor && destCard.rank === bottomMoving.rank + 1) {
-                    allowed = true;
-                }
+                if (destColor !== moveColor && destCard.rank === bottomMoving.rank + 1) allowed = true;
             }
         }
 
         if (allowed) {
-            // Execute Move
             if (sSource === 'tableau') tableau[sCol].splice(sIdx);
             else if (sSource === 'discard') discard.pop();
             else if (sSource === 'foundation') foundations[sCol].pop();
