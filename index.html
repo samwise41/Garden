@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>GitHub Solitaire (Big Cards)</title>
+    <title>Solitaire (Undo & Solve)</title>
     <style>
         :root {
             /* Desktop Default Sizes */
@@ -36,7 +36,7 @@
 
         header {
             width: 100%;
-            padding: 10px 20px;
+            padding: 10px 15px;
             background: rgba(0,0,0,0.2);
             display: flex;
             justify-content: space-between;
@@ -47,17 +47,27 @@
             z-index: 50;
         }
 
+        .header-left { display: flex; align-items: center; gap: 10px; }
+        .header-right { display: flex; align-items: center; gap: 5px; }
+
         h1 { margin: 0; font-size: 1.2rem; }
         
         button {
-            padding: 8px 12px;
+            padding: 8px 10px;
             background: white;
             border: none;
             border-radius: 4px;
             cursor: pointer;
             font-weight: bold;
             color: var(--bg-color);
-            font-size: 0.9rem;
+            font-size: 0.85rem;
+        }
+        
+        /* Silver Solve Button */
+        button.solve-btn {
+            background: silver;
+            color: #333;
+            border: 1px solid #999;
         }
 
         #game-board {
@@ -91,7 +101,7 @@
             background: rgba(0,0,0,0.1); 
             text-align: center;
             line-height: var(--card-height);
-            font-size: 3rem; /* Bigger foundation placeholder symbols */
+            font-size: 3rem; 
             color: rgba(255,255,255,0.2);
         }
 
@@ -122,32 +132,23 @@
             justify-content: space-between;
             width: 100%;
             height: 100%;
-            padding: 2px; /* Reduced padding to give text more room */
+            padding: 2px;
             box-sizing: border-box;
             pointer-events: none;
         }
 
-        /* --- BIGGER TEXT STYLES START HERE --- */
+        /* Big Text Styles */
         .card-corner {
-            font-size: 1.6rem; /* Much bigger corner number */
+            font-size: 1.6rem; 
             display: flex;
             flex-direction: column;
             align-items: center;
             line-height: 0.9;
             font-weight: bold;
         }
-        
-        .card-corner span {
-            display: block;
-        }
-
+        .card-corner span { display: block; }
         .card-corner.bottom { transform: rotate(180deg); }
-        
-        .card-center { 
-            font-size: 3.5rem; /* Huge center symbol */
-            line-height: 1;
-        }
-        /* --- BIGGER TEXT STYLES END HERE --- */
+        .card-center { font-size: 3.5rem; line-height: 1; }
 
         .card.back {
             background: var(--card-back);
@@ -169,16 +170,14 @@
                 --card-height: 18vw;
                 --card-gap: 1vw;
             }
-            #game-board, .top-row {
-                gap: 1vw;
-                padding: 5px;
-            }
-            
-            /* Mobile Specific Font Upscaling */
-            .card-center { font-size: 2.8rem; } /* Massive center suit for mobile */
-            .card-corner { font-size: 1.1rem; } /* Easy to read numbers */
+            #game-board, .top-row { gap: 1vw; padding: 5px; }
+            .card-center { font-size: 2.8rem; } 
+            .card-corner { font-size: 1.1rem; } 
             .foundation { font-size: 2rem; line-height: 18vw; }
             h1 { font-size: 1rem; }
+            header { flex-direction: column; gap: 5px; }
+            .header-right { width: 100%; justify-content: space-between; }
+            button { flex: 1; } /* Buttons stretch to fill width */
         }
         
         .card.dragging {
@@ -186,7 +185,6 @@
             opacity: 0.8;
             pointer-events: none;
         }
-        
         .placeholder { opacity: 0.3; }
 
         #win-message {
@@ -206,10 +204,14 @@
 <body>
 
 <header>
-    <h1>Solitaire</h1>
-    <div>
+    <div class="header-left">
+        <h1>Solitaire</h1>
         <span id="score">Score: 0</span>
-        <button onclick="initGame()" style="margin-left: 10px;">New</button>
+    </div>
+    <div class="header-right">
+        <button onclick="undo()">Undo</button>
+        <button class="solve-btn" onclick="solveGame()">Solve</button>
+        <button onclick="initGame()">New</button>
     </div>
 </header>
 
@@ -246,6 +248,7 @@
     
     let deck = [], stock = [], discard = [], tableau = [], foundations = [];
     let score = 0;
+    let historyStack = [];
 
     function createDeck() {
         deck = [];
@@ -270,6 +273,7 @@
         createDeck();
         shuffleDeck();
         score = 0;
+        historyStack = []; // Clear history
         updateScore(0);
         document.getElementById('win-message').style.display = 'none';
 
@@ -286,6 +290,63 @@
             }
         }
         stock = deck;
+        render();
+    }
+
+    // --- History System (Undo) ---
+    function saveState() {
+        // Deep copy the game state
+        const state = {
+            stock: JSON.parse(JSON.stringify(stock)),
+            discard: JSON.parse(JSON.stringify(discard)),
+            tableau: JSON.parse(JSON.stringify(tableau)),
+            foundations: JSON.parse(JSON.stringify(foundations)),
+            score: score
+        };
+        historyStack.push(state);
+        // Limit history to last 50 moves to save memory
+        if (historyStack.length > 50) historyStack.shift();
+    }
+
+    function undo() {
+        if (historyStack.length === 0) return;
+        const prevState = historyStack.pop();
+        
+        stock = prevState.stock;
+        discard = prevState.discard;
+        tableau = prevState.tableau;
+        foundations = prevState.foundations;
+        score = prevState.score;
+        
+        updateScore(0); // Just refresh display
+        render();
+    }
+
+    function solveGame() {
+        saveState(); // Allow undoing the solve if it was accidental
+        
+        // Reset everything
+        tableau = [[], [], [], [], [], [], []];
+        stock = [];
+        discard = [];
+        foundations = [[], [], [], []];
+
+        // Recreate a perfect deck
+        createDeck();
+        
+        // Distribute to foundations
+        deck.forEach(card => {
+            card.faceUp = true;
+            // suits array order: h, d, c, s
+            const suitIdx = suits.indexOf(card.suit);
+            foundations[suitIdx].push(card);
+        });
+
+        // Sort foundations by rank (just to be safe, though deck creation is ordered)
+        foundations.forEach(pile => pile.sort((a,b) => a.rank - b.rank));
+
+        score = 9999;
+        updateScore(0);
         render();
     }
 
@@ -348,6 +409,7 @@
     }
 
     function drawCard() {
+        saveState(); // Save before drawing
         if (stock.length === 0) {
             stock = discard.reverse().map(c => { c.faceUp = false; return c; });
             discard = [];
@@ -414,8 +476,6 @@
     function moveDrag(clientX, clientY) {
         const dx = clientX - startX;
         const dy = clientY - startY;
-        const currentLeft = parseFloat(dragClone.style.left);
-        const currentTop = parseFloat(dragClone.style.top);
         dragClone.style.transform = `translate(${dx}px, ${dy}px)`;
     }
 
@@ -491,6 +551,8 @@
         }
 
         if (allowed) {
+            saveState(); // Save state before applying the move
+
             if (sSource === 'tableau') tableau[sCol].splice(sIdx);
             else if (sSource === 'discard') discard.pop();
             else if (sSource === 'foundation') foundations[sCol].pop();
