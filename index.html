@@ -3,10 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Solitaire (Undo & Solve)</title>
+    <title>Solitaire (Animated Solve)</title>
     <style>
         :root {
-            /* Desktop Default Sizes */
             --card-width: 90px;
             --card-height: 126px;
             --card-gap: 15px;
@@ -63,12 +62,17 @@
             font-size: 0.85rem;
         }
         
+        button:disabled { opacity: 0.5; cursor: not-allowed; }
+
         /* Silver Solve Button */
         button.solve-btn {
             background: silver;
             color: #333;
             border: 1px solid #999;
+            box-shadow: 0 2px 0 #666;
+            transition: transform 0.1s;
         }
+        button.solve-btn:active { transform: translateY(2px); box-shadow: none; }
 
         #game-board {
             margin-top: 10px;
@@ -79,7 +83,6 @@
             padding-bottom: 50px;
         }
 
-        /* Top Row Areas */
         .top-row {
             grid-column: 1 / -1;
             display: grid;
@@ -137,7 +140,6 @@
             pointer-events: none;
         }
 
-        /* Big Text Styles */
         .card-corner {
             font-size: 1.6rem; 
             display: flex;
@@ -163,7 +165,6 @@
             padding-bottom: 50px; 
         }
 
-        /* Mobile Adjustments */
         @media (max-width: 600px) {
             :root {
                 --card-width: 13vw;
@@ -177,7 +178,7 @@
             h1 { font-size: 1rem; }
             header { flex-direction: column; gap: 5px; }
             .header-right { width: 100%; justify-content: space-between; }
-            button { flex: 1; } /* Buttons stretch to fill width */
+            button { flex: 1; } 
         }
         
         .card.dragging {
@@ -209,9 +210,9 @@
         <span id="score">Score: 0</span>
     </div>
     <div class="header-right">
-        <button onclick="undo()">Undo</button>
-        <button class="solve-btn" onclick="solveGame()">Solve</button>
-        <button onclick="initGame()">New</button>
+        <button id="undo-btn" onclick="undo()">Undo</button>
+        <button id="solve-btn" class="solve-btn" onclick="animateSolve()">Solve</button>
+        <button id="new-btn" onclick="initGame()">New</button>
     </div>
 </header>
 
@@ -249,6 +250,7 @@
     let deck = [], stock = [], discard = [], tableau = [], foundations = [];
     let score = 0;
     let historyStack = [];
+    let isSolving = false; // Prevent user interaction during animation
 
     function createDeck() {
         deck = [];
@@ -270,10 +272,12 @@
     }
 
     function initGame() {
+        isSolving = false;
+        enableControls(true);
         createDeck();
         shuffleDeck();
         score = 0;
-        historyStack = []; // Clear history
+        historyStack = []; 
         updateScore(0);
         document.getElementById('win-message').style.display = 'none';
 
@@ -293,9 +297,92 @@
         render();
     }
 
-    // --- History System (Undo) ---
+    // --- Animation Logic ---
+
+    const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+
+    async function animateSolve() {
+        if (isSolving) return;
+        isSolving = true;
+        enableControls(false); // Disable buttons
+        saveState(); // Save state in case they want to undo the solve later (optional)
+
+        // We cycle from Rank 1 (Ace) to 13 (King)
+        for (let rank = 1; rank <= 13; rank++) {
+            for (let suitIdx = 0; suitIdx < 4; suitIdx++) {
+                const suit = suits[suitIdx];
+                
+                // Check if already in foundation
+                let currentFoundation = foundations[suitIdx];
+                if (currentFoundation.length >= rank) continue;
+
+                // Find the card anywhere
+                await findAndMoveCardToFoundation(suit, rank, suitIdx);
+            }
+        }
+        
+        // Final Win Check
+        render();
+        // Wait a moment then show win
+        await sleep(500);
+        checkWin();
+    }
+
+    async function findAndMoveCardToFoundation(suit, rank, foundationIdx) {
+        // 1. Check Stock
+        let idx = stock.findIndex(c => c.suit === suit && c.rank === rank);
+        if (idx !== -1) {
+            let card = stock.splice(idx, 1)[0];
+            card.faceUp = true;
+            foundations[foundationIdx].push(card);
+            updateScore(10);
+            render();
+            await sleep(100); // Animation Delay
+            return;
+        }
+
+        // 2. Check Discard
+        idx = discard.findIndex(c => c.suit === suit && c.rank === rank);
+        if (idx !== -1) {
+            let card = discard.splice(idx, 1)[0];
+            card.faceUp = true;
+            foundations[foundationIdx].push(card);
+            updateScore(10);
+            render();
+            await sleep(100);
+            return;
+        }
+
+        // 3. Check Tableau
+        for (let col = 0; col < 7; col++) {
+            idx = tableau[col].findIndex(c => c.suit === suit && c.rank === rank);
+            if (idx !== -1) {
+                let card = tableau[col].splice(idx, 1)[0];
+                card.faceUp = true;
+                foundations[foundationIdx].push(card);
+                updateScore(10);
+                
+                // If we exposed a card below, flip it up for visual niceness
+                if (idx > 0 && idx === tableau[col].length) {
+                    tableau[col][idx-1].faceUp = true;
+                }
+                
+                render();
+                await sleep(100);
+                return;
+            }
+        }
+    }
+
+    function enableControls(enabled) {
+        document.getElementById('undo-btn').disabled = !enabled;
+        document.getElementById('solve-btn').disabled = !enabled;
+        document.getElementById('new-btn').disabled = !enabled;
+    }
+
+    // --- History System ---
     function saveState() {
-        // Deep copy the game state
+        if(isSolving) return;
         const state = {
             stock: JSON.parse(JSON.stringify(stock)),
             discard: JSON.parse(JSON.stringify(discard)),
@@ -304,11 +391,11 @@
             score: score
         };
         historyStack.push(state);
-        // Limit history to last 50 moves to save memory
         if (historyStack.length > 50) historyStack.shift();
     }
 
     function undo() {
+        if (isSolving) return;
         if (historyStack.length === 0) return;
         const prevState = historyStack.pop();
         
@@ -318,34 +405,6 @@
         foundations = prevState.foundations;
         score = prevState.score;
         
-        updateScore(0); // Just refresh display
-        render();
-    }
-
-    function solveGame() {
-        saveState(); // Allow undoing the solve if it was accidental
-        
-        // Reset everything
-        tableau = [[], [], [], [], [], [], []];
-        stock = [];
-        discard = [];
-        foundations = [[], [], [], []];
-
-        // Recreate a perfect deck
-        createDeck();
-        
-        // Distribute to foundations
-        deck.forEach(card => {
-            card.faceUp = true;
-            // suits array order: h, d, c, s
-            const suitIdx = suits.indexOf(card.suit);
-            foundations[suitIdx].push(card);
-        });
-
-        // Sort foundations by rank (just to be safe, though deck creation is ordered)
-        foundations.forEach(pile => pile.sort((a,b) => a.rank - b.rank));
-
-        score = 9999;
         updateScore(0);
         render();
     }
@@ -383,7 +442,8 @@
                 tEl.appendChild(el);
             });
         }
-        checkWin();
+        
+        if (!isSolving) checkWin();
     }
 
     function createCardElement(card, source, colIdx, cardIdx) {
@@ -403,13 +463,14 @@
                     <div class="card-corner bottom"><span>${card.value}</span><span>${symbols[card.suit]}</span></div>
                 </div>
             `;
-            attachDragListeners(el);
+            if (!isSolving) attachDragListeners(el);
         }
         return el;
     }
 
     function drawCard() {
-        saveState(); // Save before drawing
+        if (isSolving) return;
+        saveState();
         if (stock.length === 0) {
             stock = discard.reverse().map(c => { c.faceUp = false; return c; });
             discard = [];
@@ -573,6 +634,7 @@
     function checkWin() {
         if (foundations.every(f => f.length === 13)) {
             document.getElementById('win-message').style.display = 'block';
+            enableControls(true); // Re-enable for play again
         }
     }
 
