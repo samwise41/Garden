@@ -3,12 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Solitaire (Smart Bot)</title>
+    <title>Solitaire</title>
     <style>
         :root {
             --card-width: 90px;
             --card-height: 126px;
-            --card-gap: 15px;
+            --card-gap: 12px; /* Slightly tighter gap for better fit */
             --bg-color: #2e7d32;
             --card-back: repeating-linear-gradient(
                 45deg,
@@ -43,44 +43,45 @@
             box-sizing: border-box;
             position: sticky;
             top: 0;
-            z-index: 50;
+            z-index: 100;
+            backdrop-filter: blur(5px);
         }
 
-        .header-left { display: flex; align-items: center; gap: 10px; }
-        .header-right { display: flex; align-items: center; gap: 5px; }
+        .header-left { display: flex; align-items: center; gap: 15px; }
+        .header-right { display: flex; align-items: center; gap: 8px; }
 
-        h1 { margin: 0; font-size: 1.2rem; }
+        h1 { margin: 0; font-size: 1.1rem; }
+        #score { font-weight: bold; font-family: monospace; font-size: 1.1rem; }
         
         button {
-            padding: 8px 10px;
+            padding: 8px 12px;
             background: white;
             border: none;
-            border-radius: 4px;
+            border-radius: 6px;
             cursor: pointer;
-            font-weight: bold;
+            font-weight: 700;
             color: var(--bg-color);
             font-size: 0.85rem;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
         }
         
         button:disabled { opacity: 0.5; cursor: not-allowed; }
 
         /* Silver Solve Button */
         button.solve-btn {
-            background: silver;
+            background: linear-gradient(to bottom, #f0f0f0, #d0d0d0);
             color: #333;
             border: 1px solid #999;
-            box-shadow: 0 2px 0 #666;
-            transition: transform 0.1s;
         }
-        button.solve-btn:active { transform: translateY(2px); box-shadow: none; }
 
         #game-board {
-            margin-top: 10px;
+            margin-top: 15px;
             display: grid;
             grid-template-columns: repeat(7, var(--card-width));
             gap: var(--card-gap);
             padding: 10px;
-            padding-bottom: 50px;
+            padding-bottom: 80px; /* Space for scrolling */
+            justify-content: center; /* Center the board */
         }
 
         .top-row {
@@ -88,7 +89,7 @@
             display: grid;
             grid-template-columns: repeat(7, var(--card-width));
             gap: var(--card-gap);
-            margin-bottom: 20px;
+            margin-bottom: 10px;
         }
 
         .stock-pile, .discard-pile, .foundation {
@@ -104,8 +105,8 @@
             background: rgba(0,0,0,0.1); 
             text-align: center;
             line-height: var(--card-height);
-            font-size: 3rem; 
-            color: rgba(255,255,255,0.2);
+            font-size: 2.5rem; 
+            color: rgba(255,255,255,0.15);
         }
 
         /* Card Styles */
@@ -124,37 +125,49 @@
             transition: top 0.1s;
             box-sizing: border-box;
             touch-action: none;
+            overflow: hidden; /* Fixes any content spilling out */
         }
 
         .card.red { color: #d32f2f; }
         .card.black { color: #212121; }
 
         .card-inner {
-            display: flex;
-            flex-direction: column;
-            justify-content: space-between;
+            position: relative;
             width: 100%;
             height: 100%;
-            padding: 2px;
-            box-sizing: border-box;
             pointer-events: none;
         }
 
+        /* --- UPDATED CARD TEXT STYLES --- */
         .card-corner {
-            font-size: 1.6rem; 
+            position: absolute;
+            top: 4px;
+            left: 4px;
+            font-size: 1.3rem; /* Reduced from 1.6rem to fit better */
             display: flex;
             flex-direction: column;
             align-items: center;
             line-height: 0.9;
-            font-weight: bold;
+            font-weight: 800;
         }
+        
         .card-corner span { display: block; }
-        .card-corner.bottom { transform: rotate(180deg); }
-        .card-center { font-size: 3.5rem; line-height: 1; }
+        
+        /* Removed bottom corner style completely */
+
+        .card-center { 
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 3.5rem; 
+            line-height: 1;
+        }
+        /* ------------------------------- */
 
         .card.back {
             background: var(--card-back);
-            border: 2px solid white;
+            border: 2px solid #fff;
         }
         .card.back .card-inner { display: none; }
 
@@ -165,26 +178,28 @@
             padding-bottom: 50px; 
         }
 
-        @media (max-width: 600px) {
+        @media (max-width: 700px) {
             :root {
-                --card-width: 13vw;
-                --card-height: 18vw;
-                --card-gap: 1vw;
+                --card-width: 12.5vw;
+                --card-height: 17.5vw;
+                --card-gap: 1.5vw;
             }
-            #game-board, .top-row { gap: 1vw; padding: 5px; }
-            .card-center { font-size: 2.8rem; } 
-            .card-corner { font-size: 1.1rem; } 
-            .foundation { font-size: 2rem; line-height: 18vw; }
-            h1 { font-size: 1rem; }
-            header { flex-direction: column; gap: 5px; }
-            .header-right { width: 100%; justify-content: space-between; }
-            button { flex: 1; } 
+            #game-board, .top-row { gap: 1.5vw; padding: 5px; }
+            .card-center { font-size: 2.5rem; } 
+            .card-corner { font-size: 1rem; top: 2px; left: 2px; } /* Smaller font on mobile */
+            .foundation { font-size: 2rem; line-height: 17.5vw; }
+            h1 { display: none; } /* Hide title on small screens to save space */
+            header { padding: 8px; }
+            .header-left { gap: 8px; }
+            button { padding: 6px 10px; font-size: 0.8rem; }
         }
         
         .card.dragging {
             z-index: 9999 !important;
-            opacity: 0.8;
+            opacity: 0.9;
             pointer-events: none;
+            box-shadow: 5px 5px 15px rgba(0,0,0,0.5);
+            transform: scale(1.05); /* Slight pop when dragging */
         }
         .placeholder { opacity: 0.3; }
 
@@ -197,8 +212,9 @@
             padding: 30px;
             border-radius: 10px;
             text-align: center;
-            box-shadow: 0 0 20px rgba(0,0,0,0.5);
+            box-shadow: 0 0 50px rgba(0,0,0,0.7);
             z-index: 10000;
+            min-width: 200px;
         }
     </style>
 </head>
@@ -206,13 +222,14 @@
 
 <header>
     <div class="header-left">
-        <h1>Solitaire Bot</h1>
+        <h1>Solitaire</h1>
         <span id="score">Score: 0</span>
     </div>
     <div class="header-right">
         <button id="undo-btn" onclick="undo()">Undo</button>
-        <button id="solve-btn" class="solve-btn" onclick="startSmartSolve()">Auto-Play</button>
-        <button id="new-btn" onclick="initGame()">New</button>
+        <button id="restart-btn" onclick="restartLevel()">Restart</button>
+        <button id="solve-btn" class="solve-btn" onclick="startSmartSolve()">Auto</button>
+        <button id="new-btn" onclick="newGame()">New</button>
     </div>
 </header>
 
@@ -238,7 +255,9 @@
 
 <div id="win-message">
     <h2>You Win!</h2>
-    <button onclick="initGame()">Play Again</button>
+    <p>Great job!</p>
+    <br>
+    <button onclick="newGame()">Play Again</button>
 </div>
 
 <script>
@@ -248,36 +267,70 @@
     const values = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'];
     
     let deck = [], stock = [], discard = [], tableau = [], foundations = [];
+    let initialDeckState = []; // Stores the shuffled deck for "Restart"
     let score = 0;
     let historyStack = [];
     let isSolving = false; 
 
-    // --- Basic Game Logic ---
+    // --- Safety Feature: Warn on Exit ---
+    window.addEventListener('beforeunload', function (e) {
+        // Cancel the event
+        e.preventDefault(); 
+        // Chrome requires returnValue to be set
+        e.returnValue = '';
+    });
+
+    // Handle "Back" button safety
+    history.pushState(null, document.title, location.href);
+    window.addEventListener('popstate', function (event) {
+        if (confirm("Are you sure you want to go back? You will lose your current game.")) {
+            history.back();
+        } else {
+            history.pushState(null, document.title, location.href);
+        }
+    });
 
     function createDeck() {
-        deck = [];
+        let newDeck = [];
         for (let s of suits) {
             for (let i = 0; i < values.length; i++) {
-                deck.push({ 
+                newDeck.push({ 
                     suit: s, value: values[i], rank: i + 1, faceUp: false,
                     id: s + (i+1)
                 });
             }
         }
+        return newDeck;
     }
 
-    function shuffleDeck() {
-        for (let i = deck.length - 1; i > 0; i--) {
+    function shuffle(array) {
+        for (let i = array.length - 1; i > 0; i--) {
             const j = Math.floor(Math.random() * (i + 1));
-            [deck[i], deck[j]] = [deck[j], deck[i]];
+            [array[i], array[j]] = [array[j], array[i]];
         }
+        return array;
     }
 
-    function initGame() {
+    function newGame() {
+        if(score > 0 && !confirm("Start a brand new game? Current progress will be lost.")) return;
+        
+        let d = createDeck();
+        shuffle(d);
+        // Deep copy for restart capability
+        initialDeckState = JSON.parse(JSON.stringify(d));
+        startGame(d);
+    }
+
+    function restartLevel() {
+        if(!confirm("Restart this level from the beginning?")) return;
+        // Restore from the initial shuffled state
+        let d = JSON.parse(JSON.stringify(initialDeckState));
+        startGame(d);
+    }
+
+    function startGame(gameDeck) {
         isSolving = false;
         enableControls(true);
-        createDeck();
-        shuffleDeck();
         score = 0;
         historyStack = []; 
         updateScore(0);
@@ -288,92 +341,76 @@
         discard = [];
         stock = [];
 
+        // Deal Cards
+        // Note: We pop from the end of the array to deal
         for (let i = 0; i < 7; i++) {
             for (let j = 0; j <= i; j++) {
-                let card = deck.pop();
-                if (j === i) card.faceUp = true;
+                let card = gameDeck.pop();
+                // Reset card state just in case
+                card.faceUp = (j === i); 
                 tableau[i].push(card);
             }
         }
-        stock = deck;
+        stock = gameDeck; // Remainder goes to stock
         render();
     }
 
     // --- Smart Bot Logic ---
-
     const sleep = (ms) => new Promise(r => setTimeout(r, ms));
 
     async function startSmartSolve() {
         if (isSolving) return;
+        if (!confirm("Let the computer finish the game for you?")) return;
+        
         isSolving = true;
         enableControls(false);
         saveState(); 
 
-        let movesMade = 0;
         let consecutiveNonMoves = 0;
-
-        // Loop until we win or get stuck
         while (isSolving && consecutiveNonMoves < 15) {
             let moved = await performBestMove();
             if (moved) {
                 consecutiveNonMoves = 0;
                 render();
-                await sleep(150); // Visual delay to see the cards fly
+                await sleep(100); 
             } else {
                 consecutiveNonMoves++;
-                // If stuck, try drawing
-                drawCard(true); // pass true to suppress history save inside draw
+                drawCard(true); 
                 render();
-                await sleep(100);
+                await sleep(50);
             }
-            
-            // Win Check
             if (foundations.every(f => f.length === 13)) {
                 checkWin();
                 break;
             }
         }
-        
         if (!foundations.every(f => f.length === 13)) {
-             // If we stopped but didn't win, re-enable controls
              isSolving = false;
              enableControls(true);
-             alert("Bot cannot find more moves!");
+             alert("No more moves found.");
         }
     }
 
     async function performBestMove() {
-        // Priority 1: Move ANY top card to Foundation
         if (await tryMoveToFoundation()) return true;
-
-        // Priority 2: Unbury a card needed for Foundation
-        // (Example: Need 5H, but it's under 4S. Move 4S stack elsewhere).
         if (await tryDigForFoundation()) return true;
-
-        // Priority 3: Move Tableau Stack to Reveal Face-Down Card
         if (await tryRevealFaceDown()) return true;
-        
-        // Priority 4: Move King to Empty Spot (if it helps unbury)
         if (await tryMoveKingToEmpty()) return true;
-
         return false;
     }
 
     async function tryMoveToFoundation() {
-        // Check Tableau Tips
         for (let i = 0; i < 7; i++) {
             if (tableau[i].length === 0) continue;
             let card = tableau[i][tableau[i].length - 1];
             let fIdx = suits.indexOf(card.suit);
             if (foundations[fIdx].length === card.rank - 1) {
-                // Move it
                 foundations[fIdx].push(tableau[i].pop());
                 if(tableau[i].length > 0) tableau[i][tableau[i].length-1].faceUp = true;
                 updateScore(10);
                 return true;
             }
         }
-        // Check Discard Top
         if (discard.length > 0) {
             let card = discard[discard.length - 1];
             let fIdx = suits.indexOf(card.suit);
@@ -387,31 +424,20 @@
     }
 
     async function tryDigForFoundation() {
-        // Look at what we need for each foundation
         for (let fIdx = 0; fIdx < 4; fIdx++) {
             let neededRank = foundations[fIdx].length + 1;
             let neededSuit = suits[fIdx];
             if (neededRank > 13) continue;
 
-            // Find where this card is
             for (let tIdx = 0; tIdx < 7; tIdx++) {
                 let col = tableau[tIdx];
                 let cIdx = col.findIndex(c => c.suit === neededSuit && c.rank === neededRank && c.faceUp);
-                
-                // If found in tableau, but NOT at the top (it is buried)
                 if (cIdx !== -1 && cIdx < col.length - 1) {
-                    // We need to move the stack ABOVE it (cIdx + 1 to end)
                     let stackBase = col[cIdx + 1];
-                    
-                    // Try to find a home for stackBase
                     let targetCol = findTableauTarget(stackBase);
                     if (targetCol !== -1) {
-                        // EXECUTE COMPLEX MOVE
                         let movingStack = col.splice(cIdx + 1);
                         tableau[targetCol].push(...movingStack);
-                        
-                        // Now the card we need is free!
-                        // The main loop will catch it in "Priority 1" next tick
                         return true; 
                     }
                 }
@@ -421,23 +447,16 @@
     }
 
     async function tryRevealFaceDown() {
-        // Try to move a stack if the card UNDER it is face down
         for (let i = 0; i < 7; i++) {
-            // Find the first face-up card
             let col = tableau[i];
             let firstFaceUpIdx = col.findIndex(c => c.faceUp);
-            
-            // If valid stack and there are face-down cards below it
             if (firstFaceUpIdx > 0) {
                 let stackBase = col[firstFaceUpIdx];
                 let targetCol = findTableauTarget(stackBase);
-                
-                // Don't move just to swap columns (avoid infinite loops)
-                // Only move if it reveals something new
                 if (targetCol !== -1) {
                     let movingStack = col.splice(firstFaceUpIdx);
                     tableau[targetCol].push(...movingStack);
-                    col[firstFaceUpIdx - 1].faceUp = true; // Flip the one we exposed
+                    col[firstFaceUpIdx - 1].faceUp = true;
                     return true;
                 }
             }
@@ -446,8 +465,6 @@
     }
     
     async function tryMoveKingToEmpty() {
-        // If we have an empty column, move a King stack there 
-        // BUT only if the King is covering face-down cards (don't move King from empty to empty)
         let emptyColIdx = tableau.findIndex(c => c.length === 0);
         if (emptyColIdx === -1) return false;
 
@@ -455,12 +472,9 @@
             if (i === emptyColIdx) continue;
             let col = tableau[i];
             if (col.length === 0) continue;
-            
             let bottomIdx = col.findIndex(c => c.faceUp);
             if (bottomIdx === -1) continue;
-            
             let card = col[bottomIdx];
-            // If it's a King AND it has face-down cards above it (index > 0)
             if (card.rank === 13 && bottomIdx > 0) {
                  let movingStack = col.splice(bottomIdx);
                  tableau[emptyColIdx].push(...movingStack);
@@ -480,7 +494,6 @@
                 let topCard = col[col.length - 1];
                 let isRed = (cardToPlace.suit === 'h' || cardToPlace.suit === 'd');
                 let topIsRed = (topCard.suit === 'h' || topCard.suit === 'd');
-                
                 if (isRed !== topIsRed && topCard.rank === cardToPlace.rank + 1) {
                     return i;
                 }
@@ -489,12 +502,12 @@
         return -1;
     }
 
-    // --- Standard Rendering & Interaction ---
-
+    // --- Standard Interaction ---
     function enableControls(enabled) {
         document.getElementById('undo-btn').disabled = !enabled;
         document.getElementById('solve-btn').disabled = !enabled;
         document.getElementById('new-btn').disabled = !enabled;
+        document.getElementById('restart-btn').disabled = !enabled;
     }
 
     function saveState() {
@@ -552,7 +565,7 @@
             tableau[i].forEach((card, idx) => {
                 if (!card.faceUp && idx === tableau[i].length - 1) card.faceUp = true;
                 const el = createCardElement(card, 'tableau', i, idx);
-                el.style.top = `${idx * (window.innerWidth < 600 ? 25 : 30)}px`;
+                el.style.top = `${idx * (window.innerWidth < 700 ? 25 : 30)}px`;
                 tEl.appendChild(el);
             });
         }
@@ -560,6 +573,7 @@
         if (!isSolving) checkWin();
     }
 
+    // UPDATED: No bottom corner logic here
     function createCardElement(card, source, colIdx, cardIdx) {
         const el = document.createElement('div');
         el.className = `card ${card.faceUp ? '' : 'back'} ${card.faceUp ? colors[card.suit] : ''}`;
@@ -572,9 +586,11 @@
         if (card.faceUp) {
             el.innerHTML = `
                 <div class="card-inner">
-                    <div class="card-corner top"><span>${card.value}</span><span>${symbols[card.suit]}</span></div>
+                    <div class="card-corner">
+                        <span>${card.value}</span>
+                        <span>${symbols[card.suit]}</span>
+                    </div>
                     <div class="card-center">${symbols[card.suit]}</div>
-                    <div class="card-corner bottom"><span>${card.value}</span><span>${symbols[card.suit]}</span></div>
                 </div>
             `;
             if (!isSolving) attachDragListeners(el);
@@ -583,7 +599,7 @@
     }
 
     function drawCard(suppressHistory = false) {
-        if (isSolving && !suppressHistory) return; // Logic protection
+        if (isSolving && !suppressHistory) return; 
         if (!suppressHistory) saveState();
         
         if (stock.length === 0) {
@@ -645,13 +661,18 @@
     function handleMouseUp(e) { if (!dragClone) return; document.removeEventListener('mousemove', handleMouseMove); document.removeEventListener('mouseup', handleMouseUp); endDrag(e.clientX, e.clientY); }
 
     function endDrag(clientX, clientY) {
-        dragClone.remove(); dragItem.classList.remove('placeholder');
-        dragItem.style.display = 'none'; 
-        let elemBelow = document.elementFromPoint(clientX, clientY);
-        dragItem.style.display = 'flex';
-        if (!elemBelow) { dragItem = null; dragClone = null; return; }
-        let dropTarget = elemBelow.closest('.card, .tableau-col, .foundation');
-        if (dropTarget) processMove(dragItem, dropTarget);
+        if(dragClone) dragClone.remove(); 
+        if(dragItem) {
+            dragItem.classList.remove('placeholder');
+            dragItem.style.display = 'none'; 
+            let elemBelow = document.elementFromPoint(clientX, clientY);
+            dragItem.style.display = 'flex';
+            
+            if (elemBelow) {
+                let dropTarget = elemBelow.closest('.card, .tableau-col, .foundation');
+                if (dropTarget) processMove(dragItem, dropTarget);
+            }
+        }
         dragItem = null; dragClone = null;
     }
 
@@ -720,7 +741,11 @@
         }
     }
 
-    initGame();
+    // Start
+    let firstDeck = createDeck();
+    shuffle(firstDeck);
+    initialDeckState = JSON.parse(JSON.stringify(firstDeck)); // Initial Save
+    startGame(firstDeck);
 </script>
 </body>
 </html>
