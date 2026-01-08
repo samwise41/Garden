@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Solitaire (Animated Solve)</title>
+    <title>Solitaire (Smart Bot)</title>
     <style>
         :root {
             --card-width: 90px;
@@ -206,12 +206,12 @@
 
 <header>
     <div class="header-left">
-        <h1>Solitaire</h1>
+        <h1>Solitaire Bot</h1>
         <span id="score">Score: 0</span>
     </div>
     <div class="header-right">
         <button id="undo-btn" onclick="undo()">Undo</button>
-        <button id="solve-btn" class="solve-btn" onclick="animateSolve()">Solve</button>
+        <button id="solve-btn" class="solve-btn" onclick="startSmartSolve()">Auto-Play</button>
         <button id="new-btn" onclick="initGame()">New</button>
     </div>
 </header>
@@ -250,7 +250,9 @@
     let deck = [], stock = [], discard = [], tableau = [], foundations = [];
     let score = 0;
     let historyStack = [];
-    let isSolving = false; // Prevent user interaction during animation
+    let isSolving = false; 
+
+    // --- Basic Game Logic ---
 
     function createDeck() {
         deck = [];
@@ -297,82 +299,197 @@
         render();
     }
 
-    // --- Animation Logic ---
+    // --- Smart Bot Logic ---
 
     const sleep = (ms) => new Promise(r => setTimeout(r, ms));
 
-    async function animateSolve() {
+    async function startSmartSolve() {
         if (isSolving) return;
         isSolving = true;
-        enableControls(false); // Disable buttons
-        saveState(); // Save state in case they want to undo the solve later (optional)
+        enableControls(false);
+        saveState(); 
 
-        // We cycle from Rank 1 (Ace) to 13 (King)
-        for (let rank = 1; rank <= 13; rank++) {
-            for (let suitIdx = 0; suitIdx < 4; suitIdx++) {
-                const suit = suits[suitIdx];
-                
-                // Check if already in foundation
-                let currentFoundation = foundations[suitIdx];
-                if (currentFoundation.length >= rank) continue;
+        let movesMade = 0;
+        let consecutiveNonMoves = 0;
 
-                // Find the card anywhere
-                await findAndMoveCardToFoundation(suit, rank, suitIdx);
+        // Loop until we win or get stuck
+        while (isSolving && consecutiveNonMoves < 15) {
+            let moved = await performBestMove();
+            if (moved) {
+                consecutiveNonMoves = 0;
+                render();
+                await sleep(150); // Visual delay to see the cards fly
+            } else {
+                consecutiveNonMoves++;
+                // If stuck, try drawing
+                drawCard(true); // pass true to suppress history save inside draw
+                render();
+                await sleep(100);
+            }
+            
+            // Win Check
+            if (foundations.every(f => f.length === 13)) {
+                checkWin();
+                break;
             }
         }
         
-        // Final Win Check
-        render();
-        // Wait a moment then show win
-        await sleep(500);
-        checkWin();
+        if (!foundations.every(f => f.length === 13)) {
+             // If we stopped but didn't win, re-enable controls
+             isSolving = false;
+             enableControls(true);
+             alert("Bot cannot find more moves!");
+        }
     }
 
-    async function findAndMoveCardToFoundation(suit, rank, foundationIdx) {
-        // 1. Check Stock
-        let idx = stock.findIndex(c => c.suit === suit && c.rank === rank);
-        if (idx !== -1) {
-            let card = stock.splice(idx, 1)[0];
-            card.faceUp = true;
-            foundations[foundationIdx].push(card);
-            updateScore(10);
-            render();
-            await sleep(100); // Animation Delay
-            return;
-        }
+    async function performBestMove() {
+        // Priority 1: Move ANY top card to Foundation
+        if (await tryMoveToFoundation()) return true;
 
-        // 2. Check Discard
-        idx = discard.findIndex(c => c.suit === suit && c.rank === rank);
-        if (idx !== -1) {
-            let card = discard.splice(idx, 1)[0];
-            card.faceUp = true;
-            foundations[foundationIdx].push(card);
-            updateScore(10);
-            render();
-            await sleep(100);
-            return;
-        }
+        // Priority 2: Unbury a card needed for Foundation
+        // (Example: Need 5H, but it's under 4S. Move 4S stack elsewhere).
+        if (await tryDigForFoundation()) return true;
 
-        // 3. Check Tableau
-        for (let col = 0; col < 7; col++) {
-            idx = tableau[col].findIndex(c => c.suit === suit && c.rank === rank);
-            if (idx !== -1) {
-                let card = tableau[col].splice(idx, 1)[0];
-                card.faceUp = true;
-                foundations[foundationIdx].push(card);
+        // Priority 3: Move Tableau Stack to Reveal Face-Down Card
+        if (await tryRevealFaceDown()) return true;
+        
+        // Priority 4: Move King to Empty Spot (if it helps unbury)
+        if (await tryMoveKingToEmpty()) return true;
+
+        return false;
+    }
+
+    async function tryMoveToFoundation() {
+        // Check Tableau Tips
+        for (let i = 0; i < 7; i++) {
+            if (tableau[i].length === 0) continue;
+            let card = tableau[i][tableau[i].length - 1];
+            let fIdx = suits.indexOf(card.suit);
+            if (foundations[fIdx].length === card.rank - 1) {
+                // Move it
+                foundations[fIdx].push(tableau[i].pop());
+                if(tableau[i].length > 0) tableau[i][tableau[i].length-1].faceUp = true;
                 updateScore(10);
-                
-                // If we exposed a card below, flip it up for visual niceness
-                if (idx > 0 && idx === tableau[col].length) {
-                    tableau[col][idx-1].faceUp = true;
-                }
-                
-                render();
-                await sleep(100);
-                return;
+                return true;
             }
         }
+        // Check Discard Top
+        if (discard.length > 0) {
+            let card = discard[discard.length - 1];
+            let fIdx = suits.indexOf(card.suit);
+            if (foundations[fIdx].length === card.rank - 1) {
+                foundations[fIdx].push(discard.pop());
+                updateScore(10);
+                return true;
+            }
+        }
+        return false;
     }
+
+    async function tryDigForFoundation() {
+        // Look at what we need for each foundation
+        for (let fIdx = 0; fIdx < 4; fIdx++) {
+            let neededRank = foundations[fIdx].length + 1;
+            let neededSuit = suits[fIdx];
+            if (neededRank > 13) continue;
+
+            // Find where this card is
+            for (let tIdx = 0; tIdx < 7; tIdx++) {
+                let col = tableau[tIdx];
+                let cIdx = col.findIndex(c => c.suit === neededSuit && c.rank === neededRank && c.faceUp);
+                
+                // If found in tableau, but NOT at the top (it is buried)
+                if (cIdx !== -1 && cIdx < col.length - 1) {
+                    // We need to move the stack ABOVE it (cIdx + 1 to end)
+                    let stackBase = col[cIdx + 1];
+                    
+                    // Try to find a home for stackBase
+                    let targetCol = findTableauTarget(stackBase);
+                    if (targetCol !== -1) {
+                        // EXECUTE COMPLEX MOVE
+                        let movingStack = col.splice(cIdx + 1);
+                        tableau[targetCol].push(...movingStack);
+                        
+                        // Now the card we need is free!
+                        // The main loop will catch it in "Priority 1" next tick
+                        return true; 
+                    }
+                }
+            }
+        }
+        return false;
+    }
+
+    async function tryRevealFaceDown() {
+        // Try to move a stack if the card UNDER it is face down
+        for (let i = 0; i < 7; i++) {
+            // Find the first face-up card
+            let col = tableau[i];
+            let firstFaceUpIdx = col.findIndex(c => c.faceUp);
+            
+            // If valid stack and there are face-down cards below it
+            if (firstFaceUpIdx > 0) {
+                let stackBase = col[firstFaceUpIdx];
+                let targetCol = findTableauTarget(stackBase);
+                
+                // Don't move just to swap columns (avoid infinite loops)
+                // Only move if it reveals something new
+                if (targetCol !== -1) {
+                    let movingStack = col.splice(firstFaceUpIdx);
+                    tableau[targetCol].push(...movingStack);
+                    col[firstFaceUpIdx - 1].faceUp = true; // Flip the one we exposed
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+    
+    async function tryMoveKingToEmpty() {
+        // If we have an empty column, move a King stack there 
+        // BUT only if the King is covering face-down cards (don't move King from empty to empty)
+        let emptyColIdx = tableau.findIndex(c => c.length === 0);
+        if (emptyColIdx === -1) return false;
+
+        for (let i = 0; i < 7; i++) {
+            if (i === emptyColIdx) continue;
+            let col = tableau[i];
+            if (col.length === 0) continue;
+            
+            let bottomIdx = col.findIndex(c => c.faceUp);
+            if (bottomIdx === -1) continue;
+            
+            let card = col[bottomIdx];
+            // If it's a King AND it has face-down cards above it (index > 0)
+            if (card.rank === 13 && bottomIdx > 0) {
+                 let movingStack = col.splice(bottomIdx);
+                 tableau[emptyColIdx].push(...movingStack);
+                 col[bottomIdx-1].faceUp = true;
+                 return true;
+            }
+        }
+        return false;
+    }
+
+    function findTableauTarget(cardToPlace) {
+        for (let i = 0; i < 7; i++) {
+            let col = tableau[i];
+            if (col.length === 0) {
+                if (cardToPlace.rank === 13) return i;
+            } else {
+                let topCard = col[col.length - 1];
+                let isRed = (cardToPlace.suit === 'h' || cardToPlace.suit === 'd');
+                let topIsRed = (topCard.suit === 'h' || topCard.suit === 'd');
+                
+                if (isRed !== topIsRed && topCard.rank === cardToPlace.rank + 1) {
+                    return i;
+                }
+            }
+        }
+        return -1;
+    }
+
+    // --- Standard Rendering & Interaction ---
 
     function enableControls(enabled) {
         document.getElementById('undo-btn').disabled = !enabled;
@@ -380,7 +497,6 @@
         document.getElementById('new-btn').disabled = !enabled;
     }
 
-    // --- History System ---
     function saveState() {
         if(isSolving) return;
         const state = {
@@ -398,13 +514,11 @@
         if (isSolving) return;
         if (historyStack.length === 0) return;
         const prevState = historyStack.pop();
-        
         stock = prevState.stock;
         discard = prevState.discard;
         tableau = prevState.tableau;
         foundations = prevState.foundations;
         score = prevState.score;
-        
         updateScore(0);
         render();
     }
@@ -468,9 +582,10 @@
         return el;
     }
 
-    function drawCard() {
-        if (isSolving) return;
-        saveState();
+    function drawCard(suppressHistory = false) {
+        if (isSolving && !suppressHistory) return; // Logic protection
+        if (!suppressHistory) saveState();
+        
         if (stock.length === 0) {
             stock = discard.reverse().map(c => { c.faceUp = false; return c; });
             discard = [];
@@ -479,9 +594,10 @@
             card.faceUp = true;
             discard.push(card);
         }
-        render();
+        if(!isSolving) render();
     }
 
+    // --- Drag & Drop ---
     let dragItem = null, dragClone = null, startX, startY;
 
     function attachDragListeners(el) {
@@ -496,14 +612,12 @@
         e.preventDefault();
         startDrag(e.target.closest('.card'), e.touches[0].clientX, e.touches[0].clientY);
     }
-
     function handleMouseDown(e) {
         e.preventDefault();
         startDrag(e.target.closest('.card'), e.clientX, e.clientY);
         document.addEventListener('mousemove', handleMouseMove);
         document.addEventListener('mouseup', handleMouseUp);
     }
-
     function startDrag(cardEl, clientX, clientY) {
         if (!cardEl || cardEl.classList.contains('back')) return;
         dragItem = cardEl;
@@ -518,44 +632,20 @@
         dragClone.style.top = rect.top + 'px';
         dragClone.style.width = rect.width + 'px';
         dragClone.style.height = rect.height + 'px';
-        
         document.body.appendChild(dragClone);
         dragItem.classList.add('placeholder');
     }
-
-    function handleTouchMove(e) {
-        if (!dragClone) return;
-        e.preventDefault();
-        moveDrag(e.touches[0].clientX, e.touches[0].clientY);
-    }
-
-    function handleMouseMove(e) {
-        if (!dragClone) return;
-        moveDrag(e.clientX, e.clientY);
-    }
-
+    function handleTouchMove(e) { if (!dragClone) return; e.preventDefault(); moveDrag(e.touches[0].clientX, e.touches[0].clientY); }
+    function handleMouseMove(e) { if (!dragClone) return; moveDrag(e.clientX, e.clientY); }
     function moveDrag(clientX, clientY) {
-        const dx = clientX - startX;
-        const dy = clientY - startY;
+        const dx = clientX - startX; const dy = clientY - startY;
         dragClone.style.transform = `translate(${dx}px, ${dy}px)`;
     }
-
-    function handleTouchEnd(e) {
-        if (!dragClone) return;
-        const touch = e.changedTouches[0];
-        endDrag(touch.clientX, touch.clientY);
-    }
-
-    function handleMouseUp(e) {
-        if (!dragClone) return;
-        document.removeEventListener('mousemove', handleMouseMove);
-        document.removeEventListener('mouseup', handleMouseUp);
-        endDrag(e.clientX, e.clientY);
-    }
+    function handleTouchEnd(e) { if (!dragClone) return; const touch = e.changedTouches[0]; endDrag(touch.clientX, touch.clientY); }
+    function handleMouseUp(e) { if (!dragClone) return; document.removeEventListener('mousemove', handleMouseMove); document.removeEventListener('mouseup', handleMouseUp); endDrag(e.clientX, e.clientY); }
 
     function endDrag(clientX, clientY) {
-        dragClone.remove();
-        dragItem.classList.remove('placeholder');
+        dragClone.remove(); dragItem.classList.remove('placeholder');
         dragItem.style.display = 'none'; 
         let elemBelow = document.elementFromPoint(clientX, clientY);
         dragItem.style.display = 'flex';
@@ -571,19 +661,12 @@
         const sIdx = parseInt(cardEl.dataset.idx);
 
         let tType, tCol;
-        if (targetEl.classList.contains('foundation')) {
-            tType = 'foundation';
-            tCol = parseInt(targetEl.dataset.index);
-        } else if (targetEl.classList.contains('tableau-col')) {
-            tType = 'tableau';
-            tCol = parseInt(targetEl.dataset.index);
-        } else if (targetEl.classList.contains('card')) {
-            tType = targetEl.dataset.source;
-            tCol = parseInt(targetEl.dataset.col);
-        }
+        if (targetEl.classList.contains('foundation')) { tType = 'foundation'; tCol = parseInt(targetEl.dataset.index); } 
+        else if (targetEl.classList.contains('tableau-col')) { tType = 'tableau'; tCol = parseInt(targetEl.dataset.index); } 
+        else if (targetEl.classList.contains('card')) { tType = targetEl.dataset.source; tCol = parseInt(targetEl.dataset.col); }
 
         if (!tType) return;
-
+        
         let movingCards = [];
         if (sSource === 'tableau') movingCards = tableau[sCol].slice(sIdx);
         else if (sSource === 'discard') movingCards = [discard[discard.length-1]];
@@ -612,8 +695,7 @@
         }
 
         if (allowed) {
-            saveState(); // Save state before applying the move
-
+            saveState();
             if (sSource === 'tableau') tableau[sCol].splice(sIdx);
             else if (sSource === 'discard') discard.pop();
             else if (sSource === 'foundation') foundations[sCol].pop();
@@ -634,7 +716,7 @@
     function checkWin() {
         if (foundations.every(f => f.length === 13)) {
             document.getElementById('win-message').style.display = 'block';
-            enableControls(true); // Re-enable for play again
+            enableControls(true);
         }
     }
 
